@@ -51,6 +51,7 @@
 #include "sgemm.h"
 #include "ggml-impl.h"
 #include "ggml-quants.h"
+#include <iostream>
 
 #ifdef _MSC_VER
 #define NOINLINE __declspec(noinline)
@@ -71,7 +72,7 @@ namespace {
 inline float unhalf(ggml_fp16_t d) {
     return GGML_FP16_TO_FP32(d);
 }
-
+using namespace std;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // VECTORIZED ARITHMETIC OPERATIONS
 
@@ -873,13 +874,14 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
     assert(ldc >= m);
     assert(nth > 0);
     assert(ith < nth);
-
+    cout<<"sgemm_time_1 : "<<ggml_time_us()<<endl;
     if (Ctype != GGML_TYPE_F32)
         return false;
 
     switch (Atype) {
 
     case GGML_TYPE_F32: {
+        cout<<"sgemm_time_1_1 : "<<ggml_time_us()<<endl;
         if (Btype != GGML_TYPE_F32)
             return false;
 #if defined(__AVX512F__)
@@ -918,8 +920,9 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
         return false;
 #endif
     }
-
+    
     case GGML_TYPE_F16: {
+        cout<<"sgemm_time_2 : "<<ggml_time_us()<<endl;
 #if defined(__AVX512F__)
         if (k % 16)
             return false;
@@ -931,6 +934,7 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
             (float *)C, ldc,
             ith, nth};
         tb.matmul(m, n);
+        cout<<"sgemm_time_2_1 : "<<ggml_time_us()<<endl;
         return true;
 #elif (defined(__AVX__) || defined(__AVX2__)) && defined(__F16C__)
         if (k % 8)
@@ -943,6 +947,7 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
             (float *)C, ldc,
             ith, nth};
         tb.matmul(m, n);
+        cout<<"sgemm_time_2_2 : "<<ggml_time_us()<<endl;
         return true;
 #elif defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC) && !defined(_MSC_VER)
         if (n < 8)
@@ -957,6 +962,7 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
             (float *)C, ldc,
             ith, nth};
         tb.matmul(m, n);
+        cout<<"sgemm_time_2_3 : "<<ggml_time_us()<<endl;
         return true;
 #elif defined(__ARM_NEON) && !defined(_MSC_VER)
         if (k % 4)
@@ -969,14 +975,15 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
             (float *)C, ldc,
             ith, nth};
         tb.matmul(m, n);
+        cout<<"sgemm_time_2_4 : "<<ggml_time_us()<<endl;
         return true;
 #else
         return false;
 #endif
     }
-    
     // 아마 여기서 matmul 진행이 되는 것 같다 (q8_0)
     case GGML_TYPE_Q8_0: {
+        cout<<"sgemm_time_3 : "<<ggml_time_us()<<endl;
         if (Btype != GGML_TYPE_Q8_0)
            return false;
 #if defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX__)
@@ -1000,8 +1007,8 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
         return false;
 #endif
     }
-
     case GGML_TYPE_Q4_0: {
+        cout<<"sgemm_time_4 : "<<ggml_time_us()<<endl;
         if (Btype != GGML_TYPE_Q8_0)
             return false;
 #if defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX__)
@@ -1029,7 +1036,7 @@ bool llamafile_sgemm(int64_t m, int64_t n, int64_t k, const void *A, int64_t lda
     default:
         return false;
     }
-
+    cout<<"sgemm_time_5 : "<<ggml_time_us()<<endl;
     (void)m;
     (void)n;
     (void)k;
